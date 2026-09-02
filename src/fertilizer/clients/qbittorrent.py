@@ -13,7 +13,8 @@ class Qbittorrent(TorrentClient):
   def __init__(self, qbit_url):
     super().__init__()
     self._qbit_url_parts = self._extract_credentials_from_url(qbit_url, "/api/v2")
-    self._qbit_cookie = None
+    self._qbit_cookie_name = None
+    self._qbit_cookie_value = None
 
   def setup(self):
     self.__authenticate()
@@ -86,13 +87,19 @@ class Qbittorrent(TorrentClient):
 
     # session cookied were previously named "SID". 5.2+ uses "QBT_SID_<port>".
     cookies = response.cookies.get_dict()
-    self._qbit_cookie = cookies.get("SID") or next(
-      (value for name, value in cookies.items() if name.startswith("QBT_SID")),
-      None,
-    )
+    if "SID" in cookies:
+      cookie_name, cookie_value = "SID", cookies["SID"]
+    else:
+      cookie_name, cookie_value = next(
+        ((name, value) for name, value in cookies.items() if name.startswith("QBT_SID")),
+        (None, None),
+      )
+
+    self._qbit_cookie_name = cookie_name
+    self._qbit_cookie_value = cookie_value
 
     # check if the cookie has been successfully identified or raise.
-    if not self._qbit_cookie:
+    if not self._qbit_cookie_name or not self._qbit_cookie_value:
       raise TorrentClientAuthenticationError("qBittorrent login failed: Invalid username or password")
 
   def __wrap_request(self, path, data=None, files=None):
@@ -108,7 +115,7 @@ class Qbittorrent(TorrentClient):
     try:
       response = requests.post(
         url_join(href, path),
-        headers=CaseInsensitiveDict({"Cookie": f"SID={self._qbit_cookie}"}),
+        headers=CaseInsensitiveDict({"Cookie": f"{self._qbit_cookie_name}={self._qbit_cookie_value}"}),
         data=data,
         files=files,
       )
