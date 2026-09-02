@@ -5,6 +5,8 @@ WORKDIR /app
 COPY pyproject.toml docker_start ./
 COPY src src
 
+RUN chmod +x docker_start
+
 RUN echo "----- Installing build dependencies" \
   && apt-get update \
   && apt-get install -y --no-install-recommends \
